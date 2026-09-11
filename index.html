@@ -36,7 +36,7 @@ header{height:auto;min-height:88px;background:transparent;border-bottom:none;dis
 <header><div class="header-inner">
 <div class="brand-group">
 <div class="brand">우리 가락 짓기</div>
-<div class="ver">v53<br>© 2026 율쌤. 무단 복제 및 배포 금지</div>
+<div class="ver">v54<br>© 2026 율쌤. 무단 복제 및 배포 금지</div>
 </div>
 <div class="student-fields">
 <span class="field"><label for="studentId">학번</label><input id="studentId" type="text" inputmode="numeric" maxlength="6" placeholder="10101" autocomplete="off"></span>
@@ -507,7 +507,33 @@ if(previewToggle){
     setStatus('입력 소리 '+(previewEnabled?'켜기':'끄기'));
   };
 }
-document.getElementById('tori').onchange=()=>{Object.keys(jangdanStores).forEach(k=>jangdanStores[k]={melody:null,janggu:null});initMelody();janggu=Array(STEPS).fill(null);buildMelodyGrid();buildJangguGrid();setStatus('토리 변경 · 선율과 장구 입력을 초기화했습니다.')}
+// ---- 토리 변경 (입력한 내용이 있으면 확인 후 초기화) ----
+let lastTori=document.getElementById('tori').value;
+function hasAnyInput(){
+  saveJangdanData();
+  return Object.keys(jangdanStores).some(k=>{
+    const st=jangdanStores[k];
+    if(!st)return false;
+    const m=st.melody&&st.melody.some(row=>row.some(x=>x));
+    const j=st.janggu&&st.janggu.some(x=>x);
+    return !!(m||j);
+  });
+}
+document.getElementById('tori').onchange=()=>{
+  const sel=document.getElementById('tori');
+  if(hasAnyInput()&&!confirm('토리를 바꾸면 지금까지 입력한 선율과 장단이 모두 지워집니다.\n(다른 장단에 입력한 내용도 함께 지워집니다.)\n\n정말 바꿀까요?')){
+    sel.value=lastTori;
+    setStatus('토리 변경을 취소했습니다.');
+    return;
+  }
+  lastTori=sel.value;
+  Object.keys(jangdanStores).forEach(k=>jangdanStores[k]={melody:null,janggu:null});
+  initMelody();
+  janggu=Array(STEPS).fill(null);
+  buildMelodyGrid();
+  buildJangguGrid();
+  setStatus('토리 변경 · 선율과 장구 입력을 초기화했습니다.');
+};
 function resetMelodyOnly(){
   if(confirm('선율을 모두 지울까요?')){
     melody=Array(currentNotes().length).fill(null).map(()=>Array(STEPS).fill(null));
@@ -527,6 +553,83 @@ function resetJangguOnly(){
 bindClick('resetBtnMelody',resetMelodyOnly);
 bindClick('resetBtnJanggu',resetJangguOnly);
 BEATS_PER_BAR=JANGDAN_CONFIG[currentJangdan()].beats;STEPS=BARS*JANGDAN_CONFIG[currentJangdan()].cellsPerBar;initMelody();jangdanStores[currentJangdan()].melody=melody.map(r=>r.slice());jangdanStores[currentJangdan()].janggu=janggu.slice();buildMelodyGrid();buildMelodyPalette();buildJangguPalette();buildStrengthPalette('melodyStrengthPalette','melody');buildStrengthPalette('jangguStrengthPalette','janggu');buildJangguGrid();setStatus(currentJangdan()+' · '+BEATS_PER_BAR+'박 · 8장단');
+
+/* ---- 자동 저장 ----
+ * 1.5초마다 변경 사항을 이 브라우저에 저장한다. 새로고침·절전·실수로 인한 작업 손실을 막는다.
+ * 공용 컴퓨터를 고려해, 다음 사람이 열었을 때 자동으로 덮어쓰지 않고 불러올지 먼저 묻는다.
+ */
+const SAVE_KEY='woorigarak_save_v1';
+let saveDirty=false;
+
+function saveState(){
+  try{
+    saveJangdanData();
+    localStorage.setItem(SAVE_KEY,JSON.stringify({
+      at:Date.now(),
+      id:document.getElementById('studentId')?.value||'',
+      name:document.getElementById('studentName')?.value||'',
+      tori:document.getElementById('tori')?.value||'',
+      jangdan:currentJangdan(),
+      stores:jangdanStores
+    }));
+  }catch(e){/* 저장 공간이 없거나 시크릿 모드인 경우 조용히 넘어간다 */}
+}
+
+function restoreState(d){
+  const idEl=document.getElementById('studentId'), nameEl=document.getElementById('studentName');
+  if(idEl)idEl.value=d.id||'';
+  if(nameEl)nameEl.value=d.name||'';
+  const toriSel=document.getElementById('tori');
+  if(d.tori&&TORI[d.tori]){toriSel.value=d.tori;lastTori=d.tori;}
+  const janSel=document.getElementById('jangdan');
+  if(d.jangdan&&JANGDAN_CONFIG[d.jangdan])janSel.value=d.jangdan;
+  Object.keys(jangdanStores).forEach(k=>{
+    const v=d.stores&&d.stores[k];
+    jangdanStores[k]=(v&&v.melody)?{melody:v.melody,janggu:v.janggu}:{melody:null,janggu:null};
+  });
+  const cfg=JANGDAN_CONFIG[currentJangdan()];
+  BEATS_PER_BAR=cfg.beats;
+  STEPS=BARS*cfg.cellsPerBar;
+  applyJangdanData();
+  buildMelodyGrid();
+  buildJangguGrid();
+}
+
+function askRestore(){
+  let raw=null;
+  try{raw=localStorage.getItem(SAVE_KEY)}catch(e){return}
+  if(!raw)return;
+  let d=null;
+  try{d=JSON.parse(raw)}catch(e){return}
+  if(!d||!d.stores)return;
+  const has=Object.keys(d.stores).some(k=>{
+    const st=d.stores[k];
+    if(!st)return false;
+    const m=st.melody&&st.melody.some(row=>row&&row.some(x=>x));
+    const j=st.janggu&&st.janggu.some(x=>x);
+    return !!(m||j);
+  });
+  if(!has)return;
+  const who=[d.id,d.name].filter(Boolean).join(' ')||'학번·이름 미입력';
+  const t=new Date(d.at||Date.now());
+  const two=n=>String(n).padStart(2,'0');
+  const when=(t.getMonth()+1)+'월 '+t.getDate()+'일 '+two(t.getHours())+':'+two(t.getMinutes());
+  if(confirm('이 컴퓨터에 저장된 작업이 있습니다.\n\n  '+who+'\n  '+when+' 저장\n\n불러올까요?\n[취소]를 누르면 저장된 내용을 지우고 새로 시작합니다.')){
+    restoreState(d);
+    setStatus('저장된 작업을 불러왔습니다.');
+  }else{
+    try{localStorage.removeItem(SAVE_KEY)}catch(e){}
+    setStatus('새로 시작합니다.');
+  }
+}
+
+document.addEventListener('click',()=>{saveDirty=true},true);
+document.addEventListener('input',()=>{saveDirty=true},true);
+document.addEventListener('change',()=>{saveDirty=true},true);
+setInterval(()=>{if(saveDirty){saveDirty=false;saveState()}},1500);
+window.addEventListener('beforeunload',()=>{if(saveDirty)saveState()});
+askRestore();
+
 </script>
 </body></html>
 
