@@ -36,7 +36,7 @@ header{height:auto;min-height:88px;background:transparent;border-bottom:none;dis
 <header><div class="header-inner">
 <div class="brand-group">
 <div class="brand">우리 가락 짓기</div>
-<div class="ver">v52<br>© 2026 율쌤. 무단 복제 및 배포 금지</div>
+<div class="ver">v53<br>© 2026 율쌤. 무단 복제 및 배포 금지</div>
 </div>
 <div class="student-fields">
 <span class="field"><label for="studentId">학번</label><input id="studentId" type="text" inputmode="numeric" maxlength="6" placeholder="10101" autocomplete="off"></span>
@@ -178,6 +178,7 @@ function buildMelodyGrid(){
   grid.style.gridAutoFlow='row';
   grid.style.alignItems='stretch';
   grid.style.minHeight=(86+notes.length*56)+'px';
+  grid.style.minWidth=(70+STEPS*74)+'px';
   const corner=document.createElement('div');
   corner.className='corner'; corner.style.gridColumn='1'; corner.style.gridRow='1 / span 3'; grid.appendChild(corner);
   for(let b=0;b<BARS;b++){
@@ -227,62 +228,94 @@ function buildMelodyGrid(){
 }
 function buildJangguGrid(){
  const g=document.getElementById('jangguGrid'), barSteps=cellsPerBar();
- g.style.gridTemplateColumns=`120px repeat(${STEPS},74px)`;g.style.gridTemplateRows='28px 30px 28px 58px';g.innerHTML='';
+ g.style.gridTemplateColumns=`120px repeat(${STEPS},74px)`;g.style.minWidth=(120+STEPS*74)+'px';g.style.gridTemplateRows='28px 30px 28px 58px';g.innerHTML='';
  const corner=document.createElement('div');corner.className='janggu-name';corner.style.gridColumn='1';corner.style.gridRow='1 / span 3';corner.textContent='장구';g.appendChild(corner);
  for(let b=0;b<BARS;b++){const d=document.createElement('div');d.className='bar-label';d.textContent=(b+1)+'장단';d.style.gridColumn=`${b*barSteps+2} / span ${barSteps}`;d.style.gridRow='1';if(b>0)d.style.borderLeft='3px solid #777';g.appendChild(d)}
  for(let b=0;b<BARS;b++){for(let p=0;p<BEATS_PER_BAR;p++){const d=document.createElement('div');d.className='beat-label beat-group-label';d.textContent=(p+1)+'박';const start=b*barSteps+p*3+2;d.style.gridColumn=`${start} / span 3`;d.style.gridRow='2';if(p===0)d.style.borderLeft='3px solid #777';d.style.display='flex';d.style.alignItems='center';d.style.justifyContent='center';g.appendChild(d)}}
  for(let c=0;c<STEPS;c++){const d=document.createElement('div');d.className='beat-label'+(c%3===0?' beat-start':'');d.textContent=((c%3)+1)+'소박';d.style.gridColumn=String(c+2);d.style.gridRow='3';if(c%barSteps===0)d.style.borderLeft='3px solid #777';g.appendChild(d)}
- for(let c=0;c<STEPS;c++){const cell=document.createElement('div');cell.className='j-cell'+(c%3===0?' beat-start':'')+(c%barSteps===0?' bar-start':'');cell.style.gridColumn=String(c+2);cell.style.gridRow='4';if(janggu[c]){cell.textContent=janggu[c].stroke||janggu[c];cell.classList.add('selected');const st=document.createElement('span');st.className='j-strength';st.textContent=janggu[c].strength||'중';cell.appendChild(st)}cell.onclick=()=>{const same=!!(janggu[c]&&janggu[c].stroke===selectedStroke&&janggu[c].strength===selectedJangguStrength);janggu[c]=same?null:{stroke:selectedStroke,strength:selectedJangguStrength};if(!same)previewSound(JANGGU_AUDIO[selectedStroke],STRENGTH_VOLUME[selectedJangguStrength]);buildJangguGrid()};g.appendChild(cell)}
+ for(let c=0;c<STEPS;c++){const cell=document.createElement('div');cell.className='j-cell'+(c%3===0?' beat-start':'')+(c%barSteps===0?' bar-start':'');cell.style.gridColumn=String(c+2);cell.style.gridRow='4';cell.dataset.step=String(c);if(janggu[c]){cell.textContent=janggu[c].stroke||janggu[c];cell.classList.add('selected');const st=document.createElement('span');st.className='j-strength';st.textContent=janggu[c].strength||'중';cell.appendChild(st)}cell.onclick=()=>{const same=!!(janggu[c]&&janggu[c].stroke===selectedStroke&&janggu[c].strength===selectedJangguStrength);janggu[c]=same?null:{stroke:selectedStroke,strength:selectedJangguStrength};if(!same)previewSound(JANGGU_AUDIO[selectedStroke],STRENGTH_VOLUME[selectedJangguStrength]);buildJangguGrid()};g.appendChild(cell)}
 }
 function buildStrengthPalette(id,type){const p=document.getElementById(id);const label=p.querySelector('.strength-label');p.innerHTML='';p.appendChild(label);['강','중','약'].forEach(name=>{const b=document.createElement('button');b.textContent=name;if((type==='melody'?selectedMelodyStrength:selectedJangguStrength)===name)b.classList.add('active');b.onclick=()=>{if(type==='melody')selectedMelodyStrength=name;else selectedJangguStrength=name;setStatus((type==='melody'?'선율 세기: ':'장구 세기: ')+name);buildStrengthPalette(id,type)};p.appendChild(b)})}
 function buildMelodyPalette(){const p=document.getElementById('melodyPalette');p.innerHTML='';[['basic','기본'],['tremolo','떠는 음'],['bend','꺾는 음']].forEach(([val,name])=>{const b=document.createElement('button');b.textContent=name;if(selectedArt===val)b.classList.add('active');b.onclick=()=>{selectedArt=val;setStatus('선율 입력: '+name);buildMelodyPalette()};p.appendChild(b)})}
 function buildJangguPalette(){const p=document.getElementById('jangguPalette');p.innerHTML='';['덩','쿵','덕','덕더','덕덕','기덕','더러러러'].forEach(name=>{const b=document.createElement('button');b.textContent=name;if(name===selectedStroke)b.classList.add('active');b.onclick=()=>{selectedStroke=name;previewSound(JANGGU_AUDIO[name],STRENGTH_VOLUME[selectedJangguStrength]);setStatus('장구: '+name+' · 세기: '+selectedJangguStrength);buildJangguPalette()};p.appendChild(b)})}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-let playbackOutline=null;
-let playbackOutlineStepWidth=0;
+/* ---- 재생 위치 표시 + 악보 자동 따라가기 ----
+ * 선율·장구 두 격자에 각각 재생 표시 막대를 만들고,
+ * 재생 위치가 보이는 영역의 FOLLOW_RATIO 지점에 오도록 가로 스크롤을 함께 움직인다.
+ * 재생 중 학생이 직접 스크롤하면 FOLLOW_RESUME_MS 동안 자동 따라가기를 멈춘다.
+ */
+const FOLLOW_RATIO=0.35;
+const FOLLOW_RESUME_MS=2500;
+let playbackTracks=[];
 let playbackRaf=null;
 let playbackStartTime=0;
 let playbackStepSec=0;
 let playbackModeSteps=0;
+let followEnabled=true;
+let followResumeTimer=null;
+
+function pauseFollow(){
+  followEnabled=false;
+  if(followResumeTimer)clearTimeout(followResumeTimer);
+  followResumeTimer=setTimeout(()=>{followEnabled=true},FOLLOW_RESUME_MS);
+}
+['wheel','touchmove','pointerdown'].forEach(ev=>{
+  document.addEventListener(ev,e=>{
+    if(playing&&e.target&&e.target.closest&&e.target.closest('.grid-wrap'))pauseFollow();
+  },{passive:true});
+});
 
 function removePlaybackOutline(){
   if(playbackRaf){cancelAnimationFrame(playbackRaf);playbackRaf=null;}
-  if(playbackOutline){playbackOutline.remove();playbackOutline=null;}
-  playbackOutlineStepWidth=0;
+  playbackTracks.forEach(t=>{if(t.outline&&t.outline.parentNode)t.outline.remove()});
+  playbackTracks=[];
 }
 
-function setupPlaybackOutline(){
-  const grid=document.getElementById('melodyGrid');
-  if(!grid)return false;
-
-  removePlaybackOutline();
-
-  const first=grid.querySelector('.cell[data-step="0"]');
-  const second=grid.querySelector('.cell[data-step="1"]');
-  if(!first)return false;
-
+// 격자 하나에 표시 막대를 만들고 좌표 기준값을 계산한다.
+function buildTrack(gridId,sel){
+  const grid=document.getElementById(gridId);
+  if(!grid)return null;
+  const first=grid.querySelector(sel+'[data-step="0"]');
+  if(!first)return null;
+  const second=grid.querySelector(sel+'[data-step="1"]');
   const gr=grid.getBoundingClientRect();
   const fr=first.getBoundingClientRect();
-
-  playbackOutline=document.createElement('div');
-  playbackOutline.className='playback-column-outline';
-  if(getComputedStyle(grid).position==='static')grid.style.position='relative';
-  grid.appendChild(playbackOutline);
-
-  const col0=Array.from(grid.querySelectorAll('.cell[data-step="0"]'));
+  const col0=Array.from(grid.querySelectorAll(sel+'[data-step="0"]'));
   const rs=col0.map(x=>x.getBoundingClientRect());
   const top=rs.length?Math.min(...rs.map(r=>r.top)):fr.top;
   const bottom=rs.length?Math.max(...rs.map(r=>r.bottom)):fr.bottom;
 
-  playbackOutline.style.left=`${fr.left-gr.left-2}px`;
-  playbackOutline.style.top=`${top-gr.top-2}px`;
-  playbackOutline.style.width=`${fr.width+4}px`;
-  playbackOutline.style.height=`${bottom-top+4}px`;
+  if(getComputedStyle(grid).position==='static')grid.style.position='relative';
+  const outline=document.createElement('div');
+  outline.className='playback-column-outline';
+  outline.style.left=(fr.left-gr.left-2)+'px';
+  outline.style.top=(top-gr.top-2)+'px';
+  outline.style.width=(fr.width+4)+'px';
+  outline.style.height=(bottom-top+4)+'px';
+  grid.appendChild(outline);
 
-  playbackOutlineStepWidth=second
-    ? second.getBoundingClientRect().left-fr.left
-    : fr.width;
-  return true;
+  return {
+    wrap:grid.closest('.grid-wrap'),
+    outline:outline,
+    startLeft:fr.left-gr.left,
+    stepWidth:second?second.getBoundingClientRect().left-fr.left:fr.width
+  };
+}
+
+function setupPlaybackOutline(){
+  removePlaybackOutline();
+  playbackTracks=[buildTrack('melodyGrid','.cell'),buildTrack('jangguGrid','.j-cell')].filter(Boolean);
+  return playbackTracks.length>0;
+}
+
+// 재생 위치가 항상 보이도록 가로 스크롤을 옮긴다.
+function followTrack(t,pos){
+  if(!t.wrap||!followEnabled)return;
+  const max=t.wrap.scrollWidth-t.wrap.clientWidth;
+  if(max<=0)return;
+  const x=t.startLeft+pos*t.stepWidth;
+  const target=Math.min(max,Math.max(0,x-t.wrap.clientWidth*FOLLOW_RATIO));
+  if(Math.abs(t.wrap.scrollLeft-target)>0.5)t.wrap.scrollLeft=target;
 }
 
 /*
@@ -291,6 +324,7 @@ function setupPlaybackOutline(){
  * 느려지거나 빨라지지 않는다.
  */
 function startPlaybackIndicator(audioStartTime, stepSec){
+  followEnabled=true;
   if(!setupPlaybackOutline())return;
   playbackStartTime=audioStartTime;
   playbackStepSec=stepSec;
@@ -298,18 +332,19 @@ function startPlaybackIndicator(audioStartTime, stepSec){
 
   const ctx=audioCtx;
   function frame(){
-    if(!playing || !playbackOutline || !ctx)return;
-
-    const elapsed=ctx.currentTime-playbackStartTime;
-    if(elapsed<0){
-      playbackOutline.style.transform='translate3d(0,0,0)';
-    }else{
-      const maxStep=playbackModeSteps-1;
-      const pos=Math.min(maxStep,Math.max(0,elapsed/playbackStepSec));
-      playbackOutline.style.transform=`translate3d(${pos*playbackOutlineStepWidth}px,0,0)`;
+    if(!playing||!ctx)return;
+    // 재생 중에 학생이 칸을 클릭하면 격자가 다시 그려지므로 표시 막대를 복구한다.
+    if(!playbackTracks.length||playbackTracks.some(t=>!t.outline.isConnected)){
+      if(!setupPlaybackOutline())return;
     }
-
-    if(elapsed <= playbackModeSteps*playbackStepSec + 0.05){
+    const elapsed=ctx.currentTime-playbackStartTime;
+    const maxStep=playbackModeSteps-1;
+    const pos=elapsed<0?0:Math.min(maxStep,Math.max(0,elapsed/playbackStepSec));
+    playbackTracks.forEach(t=>{
+      t.outline.style.transform='translate3d('+(pos*t.stepWidth)+'px,0,0)';
+      followTrack(t,pos);
+    });
+    if(elapsed<=playbackModeSteps*playbackStepSec+0.05){
       playbackRaf=requestAnimationFrame(frame);
     }
   }
